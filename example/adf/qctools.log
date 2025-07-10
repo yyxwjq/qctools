@@ -1,0 +1,82 @@
+2025-07-10 03:45:30 - root - INFO - ADF for H - H - H calculated in 246.13 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for Cl - O - H calculated in 246.18 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for H - O - O calculated in 246.21 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for Cl - Cl - H calculated in 246.24 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for Cl - H - H calculated in 246.27 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for O - Cl - O calculated in 246.30 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for H - Cl - H calculated in 246.33 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for H - H - O calculated in 246.36 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for Cl - Cl - Cl calculated in 246.38 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for Cl - H - Cl calculated in 246.41 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for Cl - Cl - O calculated in 246.45 seconds.
+2025-07-10 03:45:30 - root - INFO - ADF for Cl - H - O calculated in 246.49 seconds.
+2025-07-10 03:45:31 - root - INFO - ADF for O - H - O calculated in 246.52 seconds.
+2025-07-10 03:45:31 - root - INFO - ADF for Cl - O - Cl calculated in 246.55 seconds.
+2025-07-10 03:45:31 - root - INFO - ADF for Cl - O - O calculated in 246.58 seconds.
+2025-07-10 03:45:31 - root - INFO - ADF for O - O - O calculated in 246.61 seconds.
+2025-07-10 03:45:31 - root - INFO - ADF for H - Cl - O calculated in 246.64 seconds.
+2025-07-10 03:45:31 - root - INFO - ADF for H - O - H calculated in 246.67 seconds.
+2025-07-10 03:56:07 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:56:08 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:56:10 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:56:10 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:56:54 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:56:56 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:57:00 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:57:03 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:57:42 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:57:46 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:57:49 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:57:52 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:58:26 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:58:35 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:58:36 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:58:38 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:59:15 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:59:23 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:59:24 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:59:26 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 03:59:51 - root - INFO - ADF for O - H - O calculated in 241.94 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - H - Cl calculated in 241.98 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for H - H - O calculated in 242.01 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - O - Cl calculated in 242.04 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for H - H - H calculated in 242.07 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for O - O - O calculated in 242.10 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - Cl - Cl calculated in 242.13 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for O - Cl - O calculated in 242.16 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - H - H calculated in 242.19 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - O - H calculated in 242.23 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for H - O - H calculated in 242.26 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for H - Cl - H calculated in 242.29 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - H - O calculated in 242.32 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - Cl - H calculated in 242.35 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - O - O calculated in 242.38 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for H - Cl - O calculated in 242.42 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for H - O - O calculated in 242.45 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF for Cl - Cl - O calculated in 242.48 seconds.
+2025-07-10 03:59:51 - root - INFO - ADF running time: 242.48s.
+2025-07-10 04:01:28 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:01:28 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:01:28 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:01:28 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:05 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:05 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:06 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:06 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:52 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:53 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:58 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:02:59 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:03:38 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:03:40 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:03:46 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:03:50 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:04:25 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:04:32 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:04:34 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:04:37 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:05:15 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:05:25 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:05:26 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:05:29 - root - INFO - No statisfied angles. Skip Cl-Cl-Cl angles.
+2025-07-10 04:06:06 - root - INFO - ADF running time: 251.27s.
