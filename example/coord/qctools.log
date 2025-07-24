@@ -1,0 +1,8 @@
+2025-07-15 22:46:36 - root - INFO - Processing 101 frames with 1372 and 1799 atoms in groups
+2025-07-15 22:46:36 - root - INFO - Using 4 core(s) for parallel processing
+2025-07-15 22:46:36 - root - INFO - Core 0 will process 26 frames (indices 0 to 25)
+2025-07-15 22:46:36 - root - INFO - Core 1 will process 25 frames (indices 26 to 50)
+2025-07-15 22:46:36 - root - INFO - Core 2 will process 25 frames (indices 51 to 75)
+2025-07-15 22:46:36 - root - INFO - Core 3 will process 25 frames (indices 76 to 100)
+2025-07-15 22:48:09 - root - INFO - Parallel processing completed successfully
+2025-07-15 22:48:09 - root - INFO - Completed processing. Output array size: 101
