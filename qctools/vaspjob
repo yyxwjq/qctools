@@ -1,0 +1,415 @@
+#!/usr/bin/env bash
+
+# Global Settings
+OUTPUT_FILE="vaspjob.log"
+WAVECAR_LIST="wavecar_list.txt"
+NEB_RESULTS="neb_tasks.txt"
+
+# Parse arguments
+parse_args() {
+    while getopts ":vmr" opt; do
+        case $opt in
+            v) OUTPUT_TO_TERMINAL=true ;;
+            m) generate_wavecar_list ;;
+            r) remove_wavecars ;;
+            \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
+        esac
+    done
+}
+
+# Enhanced parameter extraction
+safe_extract_param() {
+    local file=$1 param=$2
+    [ ! -f "$file" ] && echo "N/A" && return
+    
+    awk -v param="$param" '
+        BEGIN {
+            IGNORECASE = 1;
+            value = "N/A";
+        }
+        {
+            # Remove inline comments
+            gsub(/#.*/, "");
+            gsub(/!.*/, "");
+            
+            # Remove leading/trailing whitespace
+            gsub(/^[ \t]+|[ \t]+$/, "");
+            
+            # Skip empty lines
+            if ($0 == "") next;
+            
+            # Check if parameter is in this line
+            if ($0 ~ "\\<" param "\\>") {
+                # Split by = or space separator
+                if (match($0, /=/)) {
+                    split($0, parts, "=");
+                    value = parts[2];
+                } else if (NF > 1) {
+                    # Handle space-separated format
+                    for (i = 1; i <= NF; i++) {
+                        if (tolower($i) == tolower(param) && i < NF) {
+                            value = $(i+1);
+                            break;
+                        }
+                    }
+                }
+                
+                # Clean up value
+                gsub(/^[ \t]+|[ \t]+$/, "", value);
+                gsub(/;.*/, "", value);  # Remove trailing comments
+                
+                # Exit after first match
+                if (value != "" && value != "N/A") {
+                    found = 1;
+                    exit;
+                }
+            }
+        }
+        END {
+            if (value == "") print "N/A";
+            else print value;
+        }
+    ' "$file"
+}
+
+# Safe integer conversion
+safe_convert_int() {
+    [[ "$1" =~ ^[0-9]+$ ]] && echo "$1" || echo "N/A"
+}
+
+# Get number of completed ionic steps (F= lines)
+get_completed_steps() {
+    local dir=$1
+    if [ -f "$dir/OSZICAR" ]; then
+        grep -c "F=" "$dir/OSZICAR"
+    else
+        echo "0"
+    fi
+}
+
+# Get first electronic step data (energy and number of SCF iterations)
+get_first_elec_step() {
+    local dir=$1
+    local result="N/A"
+    
+    if [ -f "$dir/OSZICAR" ]; then
+        # Get the first F= line and extract energy and SCF iterations
+        local first_line=$(grep "F=" "$dir/OSZICAR" | head -1)
+        if [ -n "$first_line" ]; then
+            # Extract energy (4th field) and format it
+            local energy=$(echo "$first_line" | awk '{printf "%.4f", $3}')
+            # Count the number of SCF iterations for the first ionic step
+            # This is the number of lines before the first F= line that start with spaces
+            local scf_line=$(($(grep -n "F=" "$dir/OSZICAR" |head -n 1 |awk '{print $1}' |cut -d ":" -f 1) - 1))
+            local scf_count=$(sed -n "${scf_line}p" "$dir/OSZICAR"  |awk '{print $2}')
+            if [ -n "$energy" ] && [ "$scf_count" -gt 0 ]; then
+                result="${energy}/${scf_count}"
+            fi
+        fi
+    fi
+    
+    echo "$result"
+}
+
+# Task type detection with additional calculation types
+determine_task_type() {
+    local dir=$1
+    
+    # 1. Check for dimer task (has MODECAR file)
+    if [ -f "$dir/MODECAR" ]; then
+        echo "dimer"
+        return
+    fi
+    
+    # 2. Check if this is a NEB image directory (path ends with two digits)
+    if [[ "$dir" =~ /[0-9][0-9]$ ]]; then
+        local parent_dir=$(dirname "$dir")
+        if [ -f "$parent_dir/INCAR" ]; then
+            local images=$(safe_convert_int "$(safe_extract_param "$parent_dir/INCAR" "IMAGES")")
+            if [[ "$images" =~ ^[0-9]+$ ]] && [ "$images" -gt 0 ]; then
+                echo "neb_image"
+                return
+            fi
+        fi
+    fi
+    
+    # 3. Check for NEB master directory (contains 00, 01, etc. subfolders)
+    if [ -d "$dir/00" ] || [ -d "$dir/01" ] || [ -d "$dir/02" ]; then
+        # Validate that it's really a NEB task
+        if [ -f "$dir/INCAR" ]; then
+            local images=$(safe_convert_int "$(safe_extract_param "$dir/INCAR" "IMAGES")")
+            if [[ "$images" =~ ^[0-9]+$ ]] && [ "$images" -gt 0 ]; then
+                echo "neb"
+                return
+            fi
+        fi
+    fi
+    
+    # 4. Check for additional calculation types
+    if [ -f "$dir/INCAR" ]; then
+        # Frequency calculation (IBRION = 5)
+        local ibrion=$(safe_extract_param "$dir/INCAR" "IBRION")
+        if [[ "$ibrion" == "5" ]]; then
+            echo "freq"
+            return
+        fi
+        
+        # DOS calculation (NEDOS exists)
+        local nedos=$(safe_extract_param "$dir/INCAR" "NEDOS")
+        if [[ "$nedos" != "N/A" ]]; then
+            echo "dos"
+            return
+        fi
+        
+        # COHP calculation (requires NBANDS)
+        local nbands=$(safe_extract_param "$dir/INCAR" "NBANDS")
+        if [[ "$nbands" != "N/A" ]]; then
+            echo "cohp"
+            return
+        fi
+        
+        # Explicit solvent calculation
+        local lsol=$(safe_extract_param "$dir/INCAR" "LSOL")
+        if [[ "$lsol" == ".TRUE." ]]; then
+            echo "solvation"
+            return
+        fi
+    fi
+    
+    # 5. Check for INCAR file
+    if [ ! -f "$dir/INCAR" ]; then
+        echo "unknown"
+        return
+    fi
+    
+    # 6. Extract key parameters
+    local nsw=$(safe_convert_int "$(safe_extract_param "$dir/INCAR" "NSW")")
+    local isif=$(safe_extract_param "$dir/INCAR" "ISIF")
+    local lsol=$(safe_extract_param "$dir/INCAR" "LSOL")
+    local ibrion=$(safe_convert_int "$(safe_extract_param "$dir/INCAR" "IBRION")")
+    
+    # 7. Determine task type
+    if [[ "$nsw" = "N/A" ]] || [[ "$nsw" -le 1 ]]; then
+        echo "single_point"
+    elif [[ "$ibrion" = "3" ]]; then
+        echo "dimer"
+    else
+        case "$isif" in
+            3) echo "cell_opt" ;;
+            2) echo "ion_opt" ;;
+            *) echo "ion_opt" ;;
+        esac
+    fi
+}
+
+# Get status of calculation
+get_status() {
+    local dir=$1
+    
+    if [ -f "$dir/OUTCAR" ]; then
+        if grep -q "General timing and accounting" "$dir/OUTCAR" 2>/dev/null; then
+            echo "Completed"
+            return
+        fi
+    fi
+    
+    local completed_steps=$(get_completed_steps "$dir")
+    if [ "$completed_steps" -gt 0 ]; then
+        echo "Running"
+    else
+        echo "NotStarted"
+    fi
+}
+
+# Run nebbarrierdist.pl for NEB calculation and save to neb_tasks.txt
+run_nebbarrier_analysis() {
+    local dir=$1
+    
+    # Check if nebbarrierdist.pl is available
+    if ! command -v nebbarrierdist.pl &> /dev/null; then
+        echo "Error: nebbarrierdist.pl not found in PATH. Please ensure VTST scripts are installed and in your PATH."
+        return 1
+    fi
+    
+    # Find first image directory (01 or 00)
+    local first_image=""
+    for img_dir in "$dir"/{01,00}; do
+        if [ -d "$img_dir" ]; then
+            first_image="$img_dir"
+            break
+        fi
+    done
+    
+    if [ -z "$first_image" ]; then
+        echo "Error: Could not find image directory (00 or 01) for NEB task at $dir" 
+        return 1
+    fi
+    
+    # Get NSW from main directory INCAR
+    local nsw=$(safe_convert_int "$(safe_extract_param "$dir/INCAR" "NSW")")
+    
+    # Get completed steps from first image directory
+    local completed_steps=$(get_completed_steps "$first_image")
+    
+    # Calculate progress
+    local progress="N/A"
+    if [[ "$nsw" =~ ^[0-9]+$ ]] && [ "$nsw" -gt 0 ]; then
+        progress="$completed_steps/$nsw"
+    else
+        progress="$completed_steps"
+    fi
+    
+    # Run the analysis and save to NEB_RESULTS file
+    > $NEB_RESULTS
+    echo "===== NEB Analysis for $dir =====" >> "$NEB_RESULTS"
+    echo "First image directory: $first_image" >> "$NEB_RESULTS"
+    echo "Status: $(get_status "$first_image")" >> "$NEB_RESULTS"
+    echo "Completed steps: $progress" >> "$NEB_RESULTS"
+    
+    # Run nebbarrierdist.pl
+    echo -e "\nBarrier analysis:" >> "$NEB_RESULTS"
+    (cd "$dir" && nebbarrierdist.pl) >> "$NEB_RESULTS" 2>&1
+    echo -e "\n" >> "$NEB_RESULTS"
+    
+    # Return 0 if successful
+    return $?
+}
+
+# Generate wavecar list
+generate_wavecar_list() {
+    > "$WAVECAR_LIST"
+    find . -name WAVECAR -type f | while read -r wfile; do
+        size=$(du -h "$wfile" | awk '{print $1}')
+        echo -e "$wfile\t$size" >> "$WAVECAR_LIST"
+    done
+    
+    column -t -s $'\t' "$WAVECAR_LIST" > tmp && mv tmp "$WAVECAR_LIST"
+    echo "Wavecar list generated: $WAVECAR_LIST"
+    exit 0
+}
+
+# Remove wavecars
+remove_wavecars() {
+    if [ -f "$WAVECAR_LIST" ]; then
+        echo "Removing Wavecars:"
+        while read -r line; do
+            wpath=$(echo "$line" | awk '{print $1}')
+            [ -f "$wpath" ] && rm -v "$wpath"
+        done < <(grep -v "^#" "$WAVECAR_LIST")
+    else
+        echo "Wavecar list not found. Generate first with -m"
+    fi
+    exit 0
+}
+
+# Main monitoring function with improved directory filtering
+monitor_tasks() {
+    local current_time=$(date "+%Y-%m-%d %H:%M:%S")
+    
+    # Create/replace output files
+    > "$OUTPUT_FILE"
+    
+    # Write header to log
+    echo "===== VASP Task Monitor ($current_time) =====" >> "$OUTPUT_FILE"
+    echo >> "$OUTPUT_FILE"
+    
+    # Column headers - merged NSW and IonSt, adjusted spacing
+    printf "%-60s %-10s %-12s     %-16s %-12s %-10s %-10s\n" \
+        "Path" "Type" "IonSt/NSW" "1st E/Step" "Energy(eV)" "Status" "Params" >> "$OUTPUT_FILE"
+    printf '%s\n' "=======================================================================================================================" >> "$OUTPUT_FILE"
+    
+    # Print to terminal if requested
+    if [ "$OUTPUT_TO_TERMINAL" = true ]; then
+        echo "===== VASP Task Monitor ($current_time) ====="
+        echo
+        printf "%-60s %-10s %-12s     %-16s %-12s %-10s %-10s\n" \
+            "Path" "Type" "IonSt/NSW" "1st E/Step" "Energy(eV)" "Status" "Params"
+        printf '%s\n' "======================================================================================================================="
+    fi
+    
+    # Get all directories with INCAR files
+    find . -name INCAR -exec dirname {} \; | sort | while read -r dir; do
+        # Skip directories that are not valid VASP tasks
+        if [ ! -f "$dir/POSCAR" ] && [ ! -f "$dir/POSCAR.0" ] && \
+           [ ! -d "$dir/00" ] && [ ! -d "$dir/01" ] && [ ! -d "$dir/02" ]; then
+            continue
+        fi
+        
+        # Get task type with improved detection
+        local task_type=$(determine_task_type "$dir")
+        local nsw="N/A" params="" 
+        local completed_steps="0" status="Unknown" energy="N/A"
+        local first_elec_step="N/A"
+        local info_dir="$dir"  # By default, use the main directory for info
+        
+        # For NEB tasks, use first image directory (01 or 00) for OSZICAR info
+        if [[ "$task_type" == "neb" ]]; then
+            # Look for first image directory
+            for img_dir in "$dir"/{01,00}; do
+                if [ -d "$img_dir" ]; then
+                    info_dir="$img_dir"
+                    break
+                fi
+            done
+        fi
+        
+        # Extract parameters if INCAR exists
+        if [ -f "$dir/INCAR" ]; then
+            nsw=$(safe_convert_int "$(safe_extract_param "$dir/INCAR" "NSW")")
+            local ispin=$(safe_extract_param "$dir/INCAR" "ISPIN")
+            [ "$ispin" = "2" ] && params="↑↓" || params="↑"
+        fi
+        
+        # Get steps and status from the info directory
+        completed_steps=$(get_completed_steps "$info_dir")
+        status=$(get_status "$info_dir")
+        
+        # Get first electronic step data
+        first_elec_step=$(get_first_elec_step "$info_dir")
+        
+        # Format IonSt/NSW column
+        local ion_nsw_col
+        if [[ "$nsw" != "N/A" ]]; then
+            ion_nsw_col="${completed_steps}/${nsw}"
+        else
+            ion_nsw_col="${completed_steps}/N/A"
+        fi
+        
+        # Get energy from OUTCAR in the info directory (only for non-NEB tasks)
+        if [[ "$task_type" != "neb" ]] && [ -f "$info_dir/OUTCAR" ]; then
+            local energy_line=$(grep "free  energy   TOTEN" "$info_dir/OUTCAR" | tail -1)
+            [ -n "$energy_line" ] && energy=$(echo "$energy_line" | awk '{print $5}' | xargs printf "%.4f" 2>/dev/null)
+        fi
+        
+        # For NEB tasks, run barrier analysis if completed
+        if [[ "$task_type" == "neb" ]] && [[ "$status" == "Completed" ]]; then
+            run_nebbarrier_analysis "$dir"
+        fi
+        
+        # Format output with merged columns and adjusted spacing
+        printf "%-60s %-10s %-12s %-16s %-12s %-10s %-10s\n" \
+            "$dir" "$task_type" "$ion_nsw_col" "$first_elec_step" "$energy" "$status" "$params" >> "$OUTPUT_FILE"
+        
+        if [ "$OUTPUT_TO_TERMINAL" = true ]; then
+            printf "%-60s %-10s %-12s %-16s %-12s %-10s %-10s\n" \
+                "$dir" "$task_type" "$ion_nsw_col" "$first_elec_step" "$energy" "$status" "$params"
+        fi
+    done
+    
+    # Final message
+    if [ "$OUTPUT_TO_TERMINAL" = true ]; then
+        echo "Report saved to $OUTPUT_FILE"
+        if [ -f $NEB_RESULTS ];then
+            echo "NEB analysis saved to $NEB_RESULTS"
+        fi
+    else
+        echo "Report generated at $OUTPUT_FILE"
+        if [ -f $NEB_RESULTS ];then
+            echo "NEB analysis saved to $NEB_RESULTS"
+        fi
+    fi
+}
+
+# Main entry
+parse_args "$@"
+monitor_tasks
