@@ -1,0 +1,157 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qctools"
+version = "1.0.0"
+authors = [
+    {name = "Jiaqi Wang", email = "wangjiaqi@example.com"},
+]
+description = "A comprehensive Python toolkit for quantum chemistry calculations and analysis"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+keywords = [
+    "quantum chemistry",
+    "molecular dynamics", 
+    "computational chemistry",
+    "structure analysis",
+    "machine learning potential",
+    "RDF",
+    "ADF",
+    "coordination number",
+    "ASE",
+]
+dependencies = [
+    "numpy>=1.18.0",
+    "scipy>=1.5.0",
+    "matplotlib>=3.0.0",
+    "ase>=3.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "black",
+    "flake8",
+    "mypy",
+]
+nep = [
+    "pynep",
+]
+all = [
+    "pynep",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/qctools"
+"Bug Reports" = "https://github.com/yourusername/qctools/issues"
+Source = "https://github.com/yourusername/qctools"
+Documentation = "https://github.com/yourusername/qctools/wiki"
+
+[project.scripts]
+qctools-edit = "qctools.edit_atoms:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["qctools*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+qctools = ["*.md", "*.txt"]
+
+# Black formatting configuration
+[tool.black]
+line-length = 88
+target-version = ['py37', 'py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers"
+testpaths = [
+    "tests",
+    "example",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.7"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "ase.*",
+    "matplotlib.*",
+    "scipy.*",
+    "pynep.*",
+]
+ignore_missing_imports = true
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["qctools"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

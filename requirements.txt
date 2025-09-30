@@ -1,0 +1,16 @@
+# Core dependencies for QCTools
+numpy>=1.18.0
+scipy>=1.5.0
+matplotlib>=3.0.0
+ase>=3.20.0
+
+# Optional dependencies for machine learning potential analysis
+# Uncomment the following line if you need NEP support:
+# pynep
+
+# Development dependencies (install with: pip install -e .[dev])
+# pytest>=6.0
+# pytest-cov
+# black
+# flake8
+# mypy
