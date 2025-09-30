@@ -10,7 +10,10 @@ import logging
 import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
-from pynep.calculate import NEP
+try:
+    from pynep.calculate import NEP
+except ImportError:
+    print("If you want to use nep calculator,please install pynep first!")
 import matplotlib.ticker as ticker
 from ase.io import read, write, Trajectory
 from matplotlib.ticker import MultipleLocator
