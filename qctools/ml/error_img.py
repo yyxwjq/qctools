@@ -16,7 +16,6 @@ except ImportError:
     print("If you want to use nep calculator,please install pynep first!")
 import matplotlib.ticker as ticker
 from ase.io import read, write, Trajectory
-from matplotlib.ticker import MultipleLocator
 from qctools import qctools_logging
 
 # Initialize logging
@@ -178,7 +177,7 @@ def data_normalization(apps,
         f_dft = np.concatenate(f_dft, axis=0)
         f_mlp = np.concatenate(f_mlp, axis=0)
         img_atom_matrix = np.array(img_atom_matrix)
-        # print(np.shape(e_dft), np.shape(e_mlp), np.shape(img_num_matrix), np.shape(f_dft), np.shape(f_mlp), np.shape(img_atom_matrix))
+
         ene_normalized_array = np.concatenate((img_num_matrix, e_dft, e_mlp), axis=1)
         force_normalized_array = np.concatenate((img_atom_matrix, f_dft, f_mlp), axis=1)
         logging.info(f'Data shapes - Energy: {ene_normalized_array.shape}, Force: {force_normalized_array.shape}')
@@ -213,8 +212,15 @@ def err_structure_finding(error_bar,
         logging.info(f'Found {len(err_indices)} structures with large energy errors (>{error_bar} × RMSE)')
         
         if len(err_indices) > 0:
-            np.savetxt('energy_error.txt', energy_data[err_indices], fmt='%4s')
-            err_img = [images[index] for index in err_indices]
+            # Calculate absolute errors for sorting
+            abs_errors = np.abs(error[err_indices])
+            # Sort by error magnitude (descending)
+            sort_indices = np.argsort(abs_errors)[::-1]
+            sorted_err_indices = err_indices[sort_indices]
+            
+            # Save sorted energy error data
+            np.savetxt('energy_error.txt', energy_data[sorted_err_indices], fmt='%4s')
+            err_img = [images[index] for index in sorted_err_indices]
             try:
                 write('Err-energy.xyz', err_img, format='extxyz')
             except Exception as e:
@@ -236,25 +242,76 @@ def err_structure_finding(error_bar,
         force_data = np.loadtxt('force.data')
         logging.info(f'Loaded force data: {force_data.shape}')
         
-        error, RMSE = rmse(force_data[:, 2:5], force_data[:, 5:8])
-        logging.info(f'Force RMSE: {RMSE:.6f} eV/Å')
-        frr_indices = np.argwhere(np.abs(error) > error_bar * RMSE)
-        logging.info(f'Found {len(frr_indices)} force components with large errors (>{error_bar} × RMSE)')
+        # Calculate errors for each component separately
+        dft_forces = force_data[:, 2:5]  # columns 2,3,4
+        mlp_forces = force_data[:, 5:8]  # columns 5,6,7
         
-        if len(frr_indices) > 0:
-            frr_output = [[force_data[xx[0], 0], force_data[xx[0], 1], force_data[xx[0], xx[1]+2], force_data[xx[0], xx[1]+5]] for xx in frr_indices]
+        # Calculate errors for each force component
+        fx_error = dft_forces[:, 0] - mlp_forces[:, 0]  # x-component
+        fy_error = dft_forces[:, 1] - mlp_forces[:, 1]  # y-component
+        fz_error = dft_forces[:, 2] - mlp_forces[:, 2]  # z-component
+        
+        # Overall RMSE (using all force components)
+        all_errors = np.concatenate([fx_error, fy_error, fz_error])
+        RMSE = np.sqrt(np.mean(all_errors**2))
+        logging.info(f'Force RMSE: {RMSE:.6f} eV/Å')
+        
+        # Find force components with errors greater than threshold
+        # Check each component against the overall RMSE (not individual component RMSE)
+        fx_err_indices = np.where(np.abs(fx_error) > error_bar * RMSE)[0]
+        fy_err_indices = np.where(np.abs(fy_error) > error_bar * RMSE)[0]
+        fz_err_indices = np.where(np.abs(fz_error) > error_bar * RMSE)[0]
+        
+        # Combine all error indices and track component type
+        all_errors = []
+        
+        # Process x-component errors
+        for idx in fx_err_indices:
+            img_idx = int(force_data[idx, 0])
+            atom_idx = int(force_data[idx, 1])
+            dft_val = dft_forces[idx, 0]
+            mlp_val = mlp_forces[idx, 0]
+            abs_err = abs(fx_error[idx])
+            all_errors.append([img_idx, atom_idx, dft_val, mlp_val, abs_err, 'x'])
+        
+        # Process y-component errors
+        for idx in fy_err_indices:
+            img_idx = int(force_data[idx, 0])
+            atom_idx = int(force_data[idx, 1])
+            dft_val = dft_forces[idx, 1]
+            mlp_val = mlp_forces[idx, 1]
+            abs_err = abs(fy_error[idx])
+            all_errors.append([img_idx, atom_idx, dft_val, mlp_val, abs_err, 'y'])
+        
+        # Process z-component errors
+        for idx in fz_err_indices:
+            img_idx = int(force_data[idx, 0])
+            atom_idx = int(force_data[idx, 1])
+            dft_val = dft_forces[idx, 2]
+            mlp_val = mlp_forces[idx, 2]
+            abs_err = abs(fz_error[idx])
+            all_errors.append([img_idx, atom_idx, dft_val, mlp_val, abs_err, 'z'])
+        
+        # Sort by error magnitude (descending)
+        all_errors.sort(key=lambda x: x[4], reverse=True)
+        
+        if len(all_errors) > 0:
+            logging.info(f'Found {len(all_errors)} force components with large errors')
+            
+            # Save sorted force error data (img_idx, atom_idx, dft_force, mlp_force, component)
+            frr_output = [[err[0], err[1], err[2], err[3], err[5]] for err in all_errors]
             np.savetxt('force_error.txt', frr_output, fmt='%4s')
             
-            bank = np.array(frr_output)[:, 0:2]
-            bank1 = np.unique(bank, axis=0).astype(float).astype(int)
-            dic = {}
-            for i in bank1:
-                if i[0] in dic:
-                    dic[i[0]].append(i[1])
-                else:
-                    dic[i[0]] = [i[1]]
+            # Group by image and atom for structure generation
+            img_atom_pairs = {}
+            for err in all_errors:
+                img_idx, atom_idx = int(err[0]), int(err[1])
+                if img_idx not in img_atom_pairs:
+                    img_atom_pairs[img_idx] = []
+                if atom_idx not in img_atom_pairs[img_idx]:
+                    img_atom_pairs[img_idx].append(atom_idx)
             
-            img_info = sorted(dic.items())
+            img_info = sorted(img_atom_pairs.items())
             
             # Remove existing error structure files
             for filename in ['Err-force-ini.xyz', 'Err-force-replaced.xyz']:
@@ -445,8 +502,7 @@ def plot_scatter_with_marginals(x,
         lowLimit = np.min([np.min(x_flat), np.min(y_flat)])
         highLimit = np.max([np.max(x_flat), np.max(y_flat)])
         
-        # Create color map for force components
-        color_map = [colors[i % 3] for i in range(3) for _ in range(x.shape[0])]
+        # Color map for force components is not needed as we handle them separately
         
         # Create scatter plot with labels for legend
         for i in range(3):
@@ -594,11 +650,12 @@ def plot_scatter_with_marginals(x,
                                    fontsize=max(5, fontsize-8), fontweight='bold',
                                    bbox=dict(boxstyle='round,pad=0.2', fc='white', alpha=0.7))
                                    
-            elif err_data.shape[1] == 4 and plot_type == 'force':
+            elif err_data.shape[1] == 5 and plot_type == 'force':
                 logging.debug('Adding force error annotations')
                 err_img = err_data[:, 0]
                 err_img_atom = err_data[:, 1]
                 err_point = err_data[:, 2:4]
+                err_component = err_data[:, 4]  # Force component (x, y, or z)
                 # Reduce annotation density for force plots
                 max_annotations = 15  # Even fewer for force plots due to more data
                 if len(err_data) > max_annotations:
@@ -606,9 +663,11 @@ def plot_scatter_with_marginals(x,
                     err_img = err_img[indices]
                     err_img_atom = err_img_atom[indices]
                     err_point = err_point[indices]
+                    err_component = err_component[indices]
                 
                 for i in range(len(err_img)):
-                    ax_main.annotate(f'{int(err_img[i])}-{int(err_img_atom[i])}', err_point[i], 
+                    # Add component label to annotation
+                    ax_main.annotate(f'{int(err_img[i])}-{int(err_img_atom[i])}{err_component[i]}', err_point[i], 
                                    textcoords="offset points", xytext=(2,2), 
                                    ha='left', va='bottom', color='red', 
                                    fontsize=max(4, fontsize-9), fontweight='bold',
@@ -625,18 +684,7 @@ def plot_scatter_with_marginals(x,
         plt.close()
 
 
-def plot_scatter(x, 
-                 y, 
-                 fontsize, 
-                 Err_commennt=True, 
-                 colors=['blue','green','orange'], 
-):
-    """Legacy plot function - kept for compatibility"""
-    logging.warning('plot_scatter is deprecated, use plot_scatter_with_marginals instead')
-    
-    # Determine plot type based on data shape
-    plot_type = 'energy' if x.shape[1] == 1 else 'force'
-    plot_scatter_with_marginals(x, y, fontsize, plot_type, Err_commennt, colors)
+
 
 def main(trajname, 
          apps, 
