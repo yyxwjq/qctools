@@ -218,8 +218,17 @@ def err_structure_finding(error_bar,
             sort_indices = np.argsort(abs_errors)[::-1]
             sorted_err_indices = err_indices[sort_indices]
             
-            # Save sorted energy error data
-            np.savetxt('energy_error.txt', energy_data[sorted_err_indices], fmt='%4s')
+            # Prepare energy error data with absolute errors
+            energy_err_data = []
+            for i, idx in enumerate(sorted_err_indices):
+                img_idx = energy_data[idx, 0]
+                dft_val = energy_data[idx, 1]
+                mlp_val = energy_data[idx, 2]
+                abs_err = abs_errors[sort_indices[i]]
+                energy_err_data.append([img_idx, dft_val, mlp_val, abs_err])
+            
+            # Save sorted energy error data with absolute errors
+            np.savetxt('energy_error.txt', energy_err_data, fmt='%4s')
             err_img = [images[index] for index in sorted_err_indices]
             try:
                 write('Err-energy.xyz', err_img, format='extxyz')
@@ -298,20 +307,24 @@ def err_structure_finding(error_bar,
         if len(all_errors) > 0:
             logging.info(f'Found {len(all_errors)} force components with large errors')
             
-            # Save sorted force error data (img_idx, atom_idx, dft_force, mlp_force, component)
-            frr_output = [[err[0], err[1], err[2], err[3], err[5]] for err in all_errors]
+            # Save sorted force error data (img_idx, atom_idx, dft_force, mlp_force, abs_err, component)
+            frr_output = [[err[0], err[1], err[2], err[3], err[4], err[5]] for err in all_errors]
             np.savetxt('force_error.txt', frr_output, fmt='%4s')
             
             # Group by image and atom for structure generation
             img_atom_pairs = {}
-            for err in all_errors:
+            # Keep track of first appearance order for each image
+            img_order = {}
+            for i, err in enumerate(all_errors):
                 img_idx, atom_idx = int(err[0]), int(err[1])
                 if img_idx not in img_atom_pairs:
                     img_atom_pairs[img_idx] = []
+                    img_order[img_idx] = i  # Record first appearance
                 if atom_idx not in img_atom_pairs[img_idx]:
                     img_atom_pairs[img_idx].append(atom_idx)
             
-            img_info = sorted(img_atom_pairs.items())
+            # Sort by first appearance order, not by image index
+            img_info = sorted(img_atom_pairs.items(), key=lambda x: img_order[x[0]])
             
             # Remove existing error structure files
             for filename in ['Err-force-ini.xyz', 'Err-force-replaced.xyz']:
