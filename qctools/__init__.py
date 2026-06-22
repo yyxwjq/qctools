@@ -6,14 +6,14 @@ A comprehensive Python toolkit for quantum chemistry calculations and analysis,
 designed for efficient processing of atomic structures and molecular dynamics trajectories.
 
 Author: Jiaqi Wang
-Version: 1.0.0
+Version: 0.1.0
 """
 
 import logging
 import os
 
 # Version information
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 __author__ = "Jiaqi Wang"
 __email__ = "wangjiaqi@example.com"
 __description__ = "A comprehensive Python toolkit for quantum chemistry calculations and analysis"
@@ -31,7 +31,7 @@ except ImportError as e:
     import warnings
     warnings.warn(f"Warning: Failed to import some modules: {e}", ImportWarning)
 
-def qctools_logging(level=logging.INFO, filename='qctools.log'):
+def qctools_logging(level=logging.INFO, filename='qctools.log', overwrite=False):
     """
     Initialize logging system for QCTools.
     
@@ -41,9 +41,11 @@ def qctools_logging(level=logging.INFO, filename='qctools.log'):
         Logging level (default: logging.INFO)
     filename : str, optional
         Log file name (default: 'qctools.log')
+    overwrite : bool, optional
+        If True, remove an existing log file before configuring logging.
     """
-    if os.path.exists('qctools.log'):
-        os.remove('qctools.log')
+    if overwrite and os.path.exists(filename):
+        os.remove(filename)
     logging.basicConfig(
         level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

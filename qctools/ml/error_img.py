@@ -16,10 +16,8 @@ except ImportError:
     print("If you want to use nep calculator,please install pynep first!")
 import matplotlib.ticker as ticker
 from ase.io import read, write, Trajectory
-from qctools import qctools_logging
 
-# Initialize logging
-qctools_logging()
+logger = logging.getLogger(__name__)
 
 '''
 apps: n2p2 or nep                                                type: str
@@ -220,16 +218,22 @@ def err_structure_finding(error_bar,
             
             # Prepare energy error data with absolute errors
             energy_err_data = []
+            sorted_image_indices = []
             for i, idx in enumerate(sorted_err_indices):
-                img_idx = energy_data[idx, 0]
+                img_idx = int(energy_data[idx, 0])
+                if img_idx < 0 or img_idx >= len(images):
+                    raise IndexError(
+                        f"Energy image index {img_idx} is out of range for {len(images)} structures"
+                    )
                 dft_val = energy_data[idx, 1]
                 mlp_val = energy_data[idx, 2]
                 abs_err = abs_errors[sort_indices[i]]
                 energy_err_data.append([img_idx, dft_val, mlp_val, abs_err])
+                sorted_image_indices.append(img_idx)
             
             # Save sorted energy error data with absolute errors
             np.savetxt('energy_error.txt', energy_err_data, fmt='%4s')
-            err_img = [images[index] for index in sorted_err_indices]
+            err_img = [images[index] for index in sorted_image_indices]
             try:
                 write('Err-energy.xyz', err_img, format='extxyz')
             except Exception as e:
@@ -238,7 +242,8 @@ def err_structure_finding(error_bar,
             logging.info('No structures with large energy errors found.')
         
         if Cutimg:
-            leave_img_id = [x for x in range(len(images)) if x not in err_indices]
+            error_image_ids = set(energy_data[err_indices, 0].astype(int))
+            leave_img_id = [x for x in range(len(images)) if x not in error_image_ids]
             leave_img = [images[index] for index in leave_img_id]
             write('leave-E-img.xyz', leave_img, format='extxyz')
             
@@ -633,7 +638,10 @@ def plot_scatter_with_marginals(x,
         err_data = None
         if os.path.exists(error_file):
             try:
-                err_data = np.loadtxt(error_file)
+                if plot_type == 'force':
+                    err_data = np.genfromtxt(error_file, dtype=str, encoding='utf-8')
+                else:
+                    err_data = np.loadtxt(error_file)
                 logging.info(f'Loading {plot_type} error annotation data')
             except Exception as e:
                 logging.error(f'Failed to load {error_file}: {e}')
@@ -644,7 +652,7 @@ def plot_scatter_with_marginals(x,
             if err_data.ndim == 1:
                 err_data = err_data.reshape(1, -1)
                 
-            if err_data.shape[1] == 3 and plot_type == 'energy':
+            if err_data.shape[1] in (3, 4) and plot_type == 'energy':
                 logging.debug('Adding energy error annotations')
                 err_img = err_data[:, 0]
                 err_point = err_data[:, 1:3]
@@ -663,12 +671,12 @@ def plot_scatter_with_marginals(x,
                                    fontsize=max(5, fontsize-8), fontweight='bold',
                                    bbox=dict(boxstyle='round,pad=0.2', fc='white', alpha=0.7))
                                    
-            elif err_data.shape[1] == 5 and plot_type == 'force':
+            elif err_data.shape[1] in (5, 6) and plot_type == 'force':
                 logging.debug('Adding force error annotations')
-                err_img = err_data[:, 0]
-                err_img_atom = err_data[:, 1]
-                err_point = err_data[:, 2:4]
-                err_component = err_data[:, 4]  # Force component (x, y, or z)
+                err_img = err_data[:, 0].astype(float)
+                err_img_atom = err_data[:, 1].astype(float)
+                err_point = err_data[:, 2:4].astype(float)
+                err_component = err_data[:, 5] if err_data.shape[1] == 6 else err_data[:, 4]
                 # Reduce annotation density for force plots
                 max_annotations = 15  # Even fewer for force plots due to more data
                 if len(err_data) > max_annotations:

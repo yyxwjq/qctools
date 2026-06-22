@@ -7,14 +7,13 @@ This script calculates coordination number of atoms with resource-efficient para
 """
 
 from ase.geometry import get_distances
-from qctools import qctools_logging
 from multiprocessing import Pool
 from ase.io import read
 import numpy as np
 import os
 import logging
 
-qctools_logging()
+logger = logging.getLogger(__name__)
 
 def _group_coordnum_serial(image, group1, group2, r0=4.0, en=6.0, ed=12.0, tolerance=0.0):
     """
@@ -57,7 +56,13 @@ def _group_coordnum_serial(image, group1, group2, r0=4.0, en=6.0, ed=12.0, toler
         l2 = (D_len / r0) ** 2
         xn = l2 ** en2
         xd = l2 ** ed2
-        func = ((1.0 - xn) / (1.0 - xd) - tolerance) / (1.0 - tolerance)
+        numerator = 1.0 - xn
+        denominator = 1.0 - xd
+        switch = np.empty_like(D_len, dtype=float)
+        singular = np.isclose(D_len, r0)
+        np.divide(numerator, denominator, out=switch, where=~singular)
+        switch[singular] = en / ed
+        func = (switch - tolerance) / (1.0 - tolerance)
         return np.sum(func[(func > 0) & (func < 1)])
     except Exception as e:
         logging.error(f"Error processing frame: {e}")

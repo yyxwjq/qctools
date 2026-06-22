@@ -6,18 +6,15 @@ This script calculates the angular distribution function (ADF) for a given set o
 It uses ASE for atomic structure manipulation and analysis, and can handle multiple structures in parallel.
 """
 from qctools.element_tools import get_elements, elements_iterators
-from ase.geometry.analysis import Analysis
-from ase.neighborlist import NeighborList
-from qctools import qctools_logging
+from ase.geometry import find_mic
 import matplotlib.pyplot as plt
 import multiprocessing as mp
-from ase.io import read
 import numpy as np
 import logging
 import time
 import os
 
-qctools_logging()
+logger = logging.getLogger(__name__)
 
 def get_adf(images, rcut, bin_size, cores=None):
     """Process a list of images using multiprocessing
@@ -48,17 +45,19 @@ def get_adf(images, rcut, bin_size, cores=None):
         chunks.append(images[start:end])
         start = end
     time_start = time.time()
-    with mp.Pool(processes=cores) as pool:
-        tasks = [(chunk, elements, rcut, bin_size) for chunk in chunks]
+    tasks = [(chunk, elements, rcut, bin_size) for chunk in chunks if chunk]
+    if cores <= 1:
+        results = [get_angular_distribution(*task) for task in tasks]
+    else:
+        with mp.Pool(processes=cores) as pool:
+            results = pool.starmap(get_angular_distribution, tasks)
 
-        # Use tqdm to display progress bar
-        results = pool.starmap(get_angular_distribution, tasks)
-        for result in results:
-            for key, value in result.items():
-                if key not in combined:
-                    combined[key] = value
-                else:
-                    combined[key] += value
+    for result in results:
+        for key, value in result.items():
+            if key not in combined:
+                combined[key] = value
+            else:
+                combined[key] += value
     """
     Obtain ADF  for each element combination
     """
@@ -98,35 +97,57 @@ def get_angular_distribution(images, elements, rcut, bin_size):
     :return: Dictionary with element pairs as keys and ADF histograms as values
     """
     ang_dict = None
+    n_bins = int(np.ceil(180.0 / bin_size))
     for image in images:
-        # Initial parameters
-        min_b = 1  # Minimum bin value to avoid division by zero
-        
-        n_bins = int(180 / bin_size)
         counter_dict = {}
-        natoms = len(image)
         
         # Obtain all element combinations
         combinations = elements_iterators(elements, 'adf')
         if not combinations:
             raise ValueError("No valid element combinations found for ADF calculation")
 
-        # Obtain all neighbors
+        symbols = image.get_chemical_symbols()
+        positions = image.get_positions()
+
         for comb in combinations: 
             counter_dict[comb] = np.zeros(n_bins)
-            # Initialize neighbor list
-            cutoff = [rcut for _ in range(len(image))]
-            nl = NeighborList(cutoff, skin=0)
-            nl.update(image)
-            ac = Analysis(image, nl)
             ea, ecenter, eb = comb
-            # Just get first neighbors for target elements rdf analysis if needed
-            if len(ac.get_angles(ea, ecenter, eb)[0]) == 0:
+
+            for center_idx, center_symbol in enumerate(symbols):
+                if center_symbol != ecenter:
+                    continue
+
+                neighbors_a = []
+                neighbors_b = []
+                center = positions[center_idx]
+                for neighbor_idx, neighbor_symbol in enumerate(symbols):
+                    if neighbor_idx == center_idx:
+                        continue
+                    vector = positions[neighbor_idx] - center
+                    vector, distance = find_mic(vector, image.cell, image.pbc)
+                    if distance > rcut:
+                        continue
+                    if neighbor_symbol == ea:
+                        neighbors_a.append((neighbor_idx, vector))
+                    if neighbor_symbol == eb:
+                        neighbors_b.append((neighbor_idx, vector))
+
+                for idx_a, vector_a in neighbors_a:
+                    for idx_b, vector_b in neighbors_b:
+                        if idx_a == idx_b:
+                            continue
+                        if ea == eb and idx_a >= idx_b:
+                            continue
+                        norm = np.linalg.norm(vector_a) * np.linalg.norm(vector_b)
+                        if norm == 0:
+                            continue
+                        cos_angle = np.dot(vector_a, vector_b) / norm
+                        angle = np.degrees(np.arccos(np.clip(cos_angle, -1.0, 1.0)))
+                        bin_index = min(int(angle / bin_size), n_bins - 1)
+                        counter_dict[comb][bin_index] += 1
+
+            if not counter_dict[comb].any():
                 logging.info(f"No statisfied angles. Skip {ea}-{ecenter}-{eb} angles.")
-                continue
-            angles = ac.get_values(ac.get_angles(ea, ecenter, eb, unique=True))[0]
-            for a in angles:
-                counter_dict[comb][int(a / bin_size)] += 1
             
         if ang_dict is None:
             ang_dict = {key: arr.copy() for key, arr in counter_dict.items()}

@@ -23,12 +23,8 @@ def remove(f, elements):
         print(f"[Error]: {str(e)}")
         sys.exit(1)
     
-    elements_set = set(atoms.symbols)
-    elements_dict = atoms.symbols.indices()
-    saved_elements = elements_set - set(elements)
-
-
-    newidx = np.concatenate([elements_dict[element] for element in saved_elements if element in elements_dict])
+    remove_elements = set(elements)
+    newidx = [idx for idx, symbol in enumerate(atoms.symbols) if symbol not in remove_elements]
     new_atoms = atoms[newidx]
     
     new_atoms.calc = atoms.calc
@@ -42,7 +38,8 @@ def remove(f, elements):
     
     print(f"Generate new file: {new_file}")
     print(f"Deleted elements: {', '.join(elements)}")
-    print(f"Saved elements: {', '.join(set(new_atoms.symbols))}")
+    saved_elements = list(dict.fromkeys(new_atoms.get_chemical_symbols()))
+    print(f"Saved elements: {', '.join(saved_elements)}")
     print(f"Saved atomic number: {len(new_atoms)}")
 
 def main():

@@ -25,7 +25,7 @@ def read_requirements():
 
 setup(
     name="qctools",
-    version="1.0.0",
+    version="0.1.0",
     author="Jiaqi Wang",
     author_email="wangjiaqi@example.com",
     description="A comprehensive Python toolkit for quantum chemistry calculations and analysis",
